@@ -377,7 +377,7 @@ let deleteTargetId = null;
 // ---- Auth ----
 function signIn() {
   const provider = new firebase.auth.GoogleAuthProvider();
-  auth.signInWithPopup(provider);
+  auth.signInWithRedirect(provider);
 }
 function signOut() {
   auth.signOut();
