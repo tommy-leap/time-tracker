@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>業務時間管理</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f0f2f5;
+      color: #333;
+      min-height: 100vh;
+    }
+    header {
+      background: #1a1a2e;
+      color: #fff;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header h1 { font-size: 1.2rem; font-weight: 600; }
+    .container { max-width: 900px; margin: 0 auto; padding: 24px 16px; }
+
+    /* Timer Card */
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .card h2 {
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #888;
+      margin-bottom: 16px;
+    }
+
+    /* Timer */
+    .timer-display {
+      font-size: 3.5rem;
+      font-weight: 300;
+      font-variant-numeric: tabular-nums;
+      text-align: center;
+      color: #1a1a2e;
+      margin: 16px 0;
+      letter-spacing: 0.04em;
+    }
+    .timer-display.running { color: #16a34a; }
+
+    .timer-fields {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .timer-fields input, .timer-fields select, .timer-fields textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-family: inherit;
+      transition: border-color 0.2s;
+    }
+    .timer-fields input:focus, .timer-fields select:focus, .timer-fields textarea:focus {
+      outline: none;
+      border-color: #6366f1;
+    }
+    .timer-fields .full { grid-column: 1 / -1; }
+    .timer-fields textarea { resize: vertical; min-height: 60px; }
+
+    .timer-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+    .btn {
+      padding: 10px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-start { background: #16a34a; color: #fff; }
+    .btn-start:hover { background: #15803d; }
+    .btn-stop { background: #dc2626; color: #fff; }
+    .btn-stop:hover { background: #b91c1c; }
+    .btn-primary { background: #6366f1; color: #fff; }
+    .btn-primary:hover { background: #4f46e5; }
+    .btn-secondary { background: #f3f4f6; color: #374151; }
+    .btn-secondary:hover { background: #e5e7eb; }
+    .btn-sm {
+      padding: 5px 12px;
+      font-size: 0.8rem;
+      border-radius: 6px;
+    }
+    .btn-danger { background: #fee2e2; color: #dc2626; }
+    .btn-danger:hover { background: #fecaca; }
+
+    /* Manual Entry */
+    .manual-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap: 12px;
+      align-items: end;
+    }
+    .manual-grid label { display: block; font-size: 0.8rem; color: #666; margin-bottom: 4px; }
+    .manual-grid input, .manual-grid select {
+      width: 100%;
+      padding: 9px 11px;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-family: inherit;
+    }
+    .manual-grid input:focus, .manual-grid select:focus {
+      outline: none; border-color: #6366f1;
+    }
+    .manual-note { grid-column: 1 / 4; }
+    .manual-note label { display: block; font-size: 0.8rem; color: #666; margin-bottom: 4px; }
+    .manual-note input { width: 100%; padding: 9px 11px; border: 1px solid #e0e0e0; border-radius: 8px; font-size: 0.9rem; font-family: inherit; }
+    .manual-note input:focus { outline: none; border-color: #6366f1; }
+
+    /* Summary */
+    .summary-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .summary-item {
+      background: #fff;
+      border-radius: 10px;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      text-align: center;
+    }
+    .summary-item .label { font-size: 0.78rem; color: #888; margin-bottom: 6px; }
+    .summary-item .value { font-size: 1.6rem; font-weight: 700; color: #1a1a2e; }
+    .summary-item .sub { font-size: 0.8rem; color: #999; margin-top: 2px; }
+
+    /* Filter */
+    .filter-bar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .filter-bar select, .filter-bar input {
+      padding: 8px 11px;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 0.87rem;
+      font-family: inherit;
+    }
+    .filter-bar select:focus, .filter-bar input:focus { outline: none; border-color: #6366f1; }
+    .filter-bar .spacer { flex: 1; }
+
+    /* Log Table */
+    .log-table { width: 100%; border-collapse: collapse; }
+    .log-table th {
+      text-align: left;
+      padding: 10px 12px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #888;
+      border-bottom: 2px solid #f0f0f0;
+    }
+    .log-table td {
+      padding: 12px 12px;
+      font-size: 0.9rem;
+      border-bottom: 1px solid #f5f5f5;
+      vertical-align: middle;
+    }
+    .log-table tr:hover td { background: #fafafa; }
+    .log-table tr:last-child td { border-bottom: none; }
+    .duration-pill {
+      display: inline-block;
+      padding: 3px 10px;
+      background: #ede9fe;
+      color: #6d28d9;
+      border-radius: 20px;
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+    .note-cell { color: #666; font-size: 0.85rem; max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .empty-state {
+      text-align: center;
+      padding: 48px;
+      color: #bbb;
+      font-size: 0.9rem;
+    }
+
+    /* Export */
+    .export-bar {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-bottom: 12px;
+    }
+
+    /* Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: #fff;
+      border-radius: 14px;
+      padding: 28px;
+      width: 400px;
+      max-width: 95vw;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    }
+    .modal h3 { font-size: 1rem; margin-bottom: 16px; }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+
+    .client-tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      background: #dbeafe;
+      color: #1d4ed8;
+    }
+
+    @media (max-width: 600px) {
+      .timer-fields { grid-template-columns: 1fr; }
+      .manual-grid { grid-template-columns: 1fr 1fr; }
+      .manual-note { grid-column: 1 / -1; }
+      .summary-row { grid-template-columns: 1fr; }
+      .log-table th:nth-child(4), .log-table td:nth-child(4) { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+  </svg>
+  <h1>業務時間管理</h1>
+</header>
+
+<div class="container">
+
+  <!-- Summary -->
+  <div class="summary-row">
+    <div class="summary-item">
+      <div class="label">今日</div>
+      <div class="value" id="sumToday">0:00</div>
+      <div class="sub" id="sumTodayCount">0件</div>
+    </div>
+    <div class="summary-item">
+      <div class="label">今週</div>
+      <div class="value" id="sumWeek">0:00</div>
+      <div class="sub" id="sumWeekCount">0件</div>
+    </div>
+    <div class="summary-item">
+      <div class="label">今月</div>
+      <div class="value" id="sumMonth">0:00</div>
+      <div class="sub" id="sumMonthCount">0件</div>
+    </div>
+    <div class="summary-item">
+      <div class="label">今月の稼働日換算</div>
+      <div class="value" id="sumMonthDays">0.0<span style="font-size:1rem;font-weight:400">日</span></div>
+      <div class="sub">1日8時間換算</div>
+    </div>
+  </div>
+
+  <!-- Timer -->
+  <div class="card">
+    <h2>タイマー</h2>
+    <div class="timer-fields">
+      <div>
+        <label style="font-size:0.8rem;color:#666;display:block;margin-bottom:4px">クライアント</label>
+        <select id="timerClient">
+          <option value="">クライアントを選択</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:0.8rem;color:#666;display:block;margin-bottom:4px">業務内容</label>
+        <input type="text" id="timerWork" placeholder="例: デザイン作業、打ち合わせ">
+      </div>
+      <div class="full">
+        <label style="font-size:0.8rem;color:#666;display:block;margin-bottom:4px">メモ（任意）</label>
+        <textarea id="timerNote" placeholder="補足メモ"></textarea>
+      </div>
+    </div>
+    <div class="timer-display" id="timerDisplay">0:00:00</div>
+    <div class="timer-actions">
+      <button class="btn btn-start" id="btnStart" onclick="startTimer()">▶ 開始</button>
+      <button class="btn btn-stop" id="btnStop" onclick="stopTimer()" style="display:none">■ 停止・保存</button>
+    </div>
+  </div>
+
+  <!-- Manual Entry -->
+  <div class="card">
+    <h2>手動入力</h2>
+    <div class="manual-grid">
+      <div>
+        <label>日付</label>
+        <input type="date" id="manDate">
+      </div>
+      <div>
+        <label>開始時刻</label>
+        <input type="time" id="manStart">
+      </div>
+      <div>
+        <label>終了時刻</label>
+        <input type="time" id="manEnd">
+      </div>
+      <div>
+        <label>クライアント</label>
+        <select id="manClient">
+          <option value="">選択</option>
+        </select>
+      </div>
+      <div class="manual-note">
+        <label>業務内容</label>
+        <input type="text" id="manWork" placeholder="例: コーディング、ミーティング">
+      </div>
+      <div style="align-self:end">
+        <button class="btn btn-primary" onclick="addManual()">追加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Log -->
+  <div class="card">
+    <h2>実績ログ</h2>
+    <div class="filter-bar">
+      <select id="filterClient" onchange="renderLog()">
+        <option value="">全クライアント</option>
+      </select>
+      <input type="month" id="filterMonth" onchange="renderLog()">
+      <div class="spacer"></div>
+      <button class="btn btn-secondary btn-sm" onclick="openClientModal()">クライアント管理</button>
+      <button class="btn btn-secondary btn-sm" onclick="exportCSV()">CSV出力</button>
+    </div>
+    <table class="log-table">
+      <thead>
+        <tr>
+          <th>日付</th>
+          <th>時間帯</th>
+          <th>時間</th>
+          <th>クライアント</th>
+          <th>業務内容</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="logBody"></tbody>
+    </table>
+    <div id="logEmpty" class="empty-state" style="display:none">
+      実績がありません。タイマーまたは手動入力で記録してください。
+    </div>
+    <div id="logTotal" style="text-align:right;padding:12px 12px 0;font-size:0.9rem;color:#666;font-weight:600;border-top:2px solid #f0f0f0;display:none"></div>
+  </div>
+
+</div>
+
+<!-- Client Modal -->
+<div class="modal-overlay" id="clientModal">
+  <div class="modal">
+    <h3>クライアント管理</h3>
+    <div style="margin-bottom:12px">
+      <div style="display:flex;gap:8px">
+        <input type="text" id="newClientName" placeholder="クライアント名" style="flex:1;padding:9px 11px;border:1px solid #e0e0e0;border-radius:8px;font-size:0.9rem;font-family:inherit">
+        <button class="btn btn-primary btn-sm" onclick="addClient()">追加</button>
+      </div>
+    </div>
+    <div id="clientList" style="max-height:220px;overflow-y:auto"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeClientModal()">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal">
+    <h3>削除の確認</h3>
+    <p style="color:#666;font-size:0.9rem">この記録を削除しますか？この操作は元に戻せません。</p>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeDeleteModal()">キャンセル</button>
+      <button class="btn btn-stop" onclick="confirmDelete()">削除</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---- State ----
+let timerInterval = null;
+let timerStart = null;
+let deleteTargetId = null;
+
+const STORAGE_LOGS = 'timetracker_logs';
+const STORAGE_CLIENTS = 'timetracker_clients';
+
+function loadLogs() {
+  return JSON.parse(localStorage.getItem(STORAGE_LOGS) || '[]');
+}
+function saveLogs(logs) {
+  localStorage.setItem(STORAGE_LOGS, JSON.stringify(logs));
+}
+function loadClients() {
+  return JSON.parse(localStorage.getItem(STORAGE_CLIENTS) || '[]');
+}
+function saveClients(clients) {
+  localStorage.setItem(STORAGE_CLIENTS, JSON.stringify(clients));
+}
+
+// ---- Timer ----
+function startTimer() {
+  const client = document.getElementById('timerClient').value;
+  const work = document.getElementById('timerWork').value.trim();
+  if (!work) { alert('業務内容を入力してください'); return; }
+
+  timerStart = new Date();
+  timerInterval = setInterval(updateTimerDisplay, 1000);
+  document.getElementById('btnStart').style.display = 'none';
+  document.getElementById('btnStop').style.display = '';
+  document.getElementById('timerDisplay').classList.add('running');
+}
+
+function updateTimerDisplay() {
+  if (!timerStart) return;
+  const elapsed = Math.floor((Date.now() - timerStart) / 1000);
+  document.getElementById('timerDisplay').textContent = formatSeconds(elapsed);
+}
+
+function stopTimer() {
+  if (!timerStart) return;
+  const end = new Date();
+  clearInterval(timerInterval);
+  timerInterval = null;
+
+  const client = document.getElementById('timerClient').value;
+  const work = document.getElementById('timerWork').value.trim();
+  const note = document.getElementById('timerNote').value.trim();
+
+  const log = {
+    id: Date.now().toString(),
+    date: formatDate(timerStart),
+    startTime: formatTime(timerStart),
+    endTime: formatTime(end),
+    durationMin: Math.round((end - timerStart) / 60000),
+    client: client,
+    work: work,
+    note: note,
+  };
+
+  const logs = loadLogs();
+  logs.unshift(log);
+  saveLogs(logs);
+
+  // Reset
+  timerStart = null;
+  document.getElementById('timerDisplay').textContent = '0:00:00';
+  document.getElementById('timerDisplay').classList.remove('running');
+  document.getElementById('btnStart').style.display = '';
+  document.getElementById('btnStop').style.display = 'none';
+  document.getElementById('timerWork').value = '';
+  document.getElementById('timerNote').value = '';
+
+  refresh();
+}
+
+// ---- Manual Entry ----
+function addManual() {
+  const date = document.getElementById('manDate').value;
+  const start = document.getElementById('manStart').value;
+  const end = document.getElementById('manEnd').value;
+  const client = document.getElementById('manClient').value;
+  const work = document.getElementById('manWork').value.trim();
+
+  if (!date || !start || !end || !work) {
+    alert('日付・開始・終了時刻・業務内容は必須です');
+    return;
+  }
+
+  const startMs = new Date(date + 'T' + start);
+  const endMs = new Date(date + 'T' + end);
+  if (endMs <= startMs) { alert('終了時刻は開始時刻より後にしてください'); return; }
+
+  const log = {
+    id: Date.now().toString(),
+    date: date,
+    startTime: start,
+    endTime: end,
+    durationMin: Math.round((endMs - startMs) / 60000),
+    client: client,
+    work: work,
+    note: '',
+  };
+
+  const logs = loadLogs();
+  logs.unshift(log);
+  logs.sort((a, b) => (b.date + b.startTime).localeCompare(a.date + a.startTime));
+  saveLogs(logs);
+  document.getElementById('manWork').value = '';
+  refresh();
+}
+
+// ---- Delete ----
+function openDeleteModal(id) {
+  deleteTargetId = id;
+  document.getElementById('deleteModal').classList.add('open');
+}
+function closeDeleteModal() {
+  deleteTargetId = null;
+  document.getElementById('deleteModal').classList.remove('open');
+}
+function confirmDelete() {
+  if (!deleteTargetId) return;
+  const logs = loadLogs().filter(l => l.id !== deleteTargetId);
+  saveLogs(logs);
+  closeDeleteModal();
+  refresh();
+}
+
+// ---- Clients ----
+function openClientModal() {
+  renderClientList();
+  document.getElementById('clientModal').classList.add('open');
+}
+function closeClientModal() {
+  document.getElementById('clientModal').classList.remove('open');
+  populateClientSelects();
+}
+function addClient() {
+  const name = document.getElementById('newClientName').value.trim();
+  if (!name) return;
+  const clients = loadClients();
+  if (clients.includes(name)) { alert('既に存在します'); return; }
+  clients.push(name);
+  saveClients(clients);
+  document.getElementById('newClientName').value = '';
+  renderClientList();
+  populateClientSelects();
+}
+function deleteClient(name) {
+  const clients = loadClients().filter(c => c !== name);
+  saveClients(clients);
+  renderClientList();
+  populateClientSelects();
+}
+function renderClientList() {
+  const clients = loadClients();
+  const el = document.getElementById('clientList');
+  if (clients.length === 0) {
+    el.innerHTML = '<p style="color:#bbb;font-size:0.85rem;text-align:center;padding:12px">クライアントがいません</p>';
+    return;
+  }
+  el.innerHTML = clients.map(c => `
+    <div style="display:flex;align-items:center;padding:8px 4px;border-bottom:1px solid #f0f0f0">
+      <span style="flex:1;font-size:0.9rem">${escHtml(c)}</span>
+      <button class="btn btn-danger btn-sm" onclick="deleteClient('${escHtml(c)}')">削除</button>
+    </div>
+  `).join('');
+}
+function populateClientSelects() {
+  const clients = loadClients();
+  const opts = ['<option value="">選択なし</option>',
+    ...clients.map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`)
+  ].join('');
+  document.getElementById('timerClient').innerHTML = opts;
+  document.getElementById('manClient').innerHTML = opts;
+
+  const filterOpts = ['<option value="">全クライアント</option>',
+    ...clients.map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`)
+  ].join('');
+  document.getElementById('filterClient').innerHTML = filterOpts;
+}
+
+// ---- Render Log ----
+function renderLog() {
+  const logs = loadLogs();
+  const filterClient = document.getElementById('filterClient').value;
+  const filterMonth = document.getElementById('filterMonth').value; // YYYY-MM
+
+  let filtered = logs;
+  if (filterClient) filtered = filtered.filter(l => l.client === filterClient);
+  if (filterMonth) filtered = filtered.filter(l => l.date.startsWith(filterMonth));
+
+  const tbody = document.getElementById('logBody');
+  const empty = document.getElementById('logEmpty');
+  const total = document.getElementById('logTotal');
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '';
+    empty.style.display = '';
+    total.style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+  total.style.display = '';
+
+  tbody.innerHTML = filtered.map(l => `
+    <tr>
+      <td>${formatDateJa(l.date)}</td>
+      <td style="font-size:0.85rem;color:#666">${l.startTime} - ${l.endTime}</td>
+      <td><span class="duration-pill">${formatMinutes(l.durationMin)}</span></td>
+      <td>${l.client ? `<span class="client-tag">${escHtml(l.client)}</span>` : '<span style="color:#ccc">-</span>'}</td>
+      <td>
+        <div style="font-weight:500">${escHtml(l.work)}</div>
+        ${l.note ? `<div class="note-cell">${escHtml(l.note)}</div>` : ''}
+      </td>
+      <td><button class="btn btn-danger btn-sm" onclick="openDeleteModal('${l.id}')">削除</button></td>
+    </tr>
+  `).join('');
+
+  const totalMin = filtered.reduce((s, l) => s + l.durationMin, 0);
+  const totalDays = (totalMin / 480).toFixed(1);
+  total.textContent = `合計: ${formatMinutes(totalMin)}（${filtered.length}件） ＝ ${totalDays}日稼働（8h換算）`;
+}
+
+// ---- Summary ----
+function renderSummary() {
+  const logs = loadLogs();
+  const now = new Date();
+  const todayStr = formatDate(now);
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1));
+  const weekStartStr = formatDate(weekStart);
+  const monthStr = todayStr.slice(0, 7);
+
+  const todayLogs = logs.filter(l => l.date === todayStr);
+  const weekLogs = logs.filter(l => l.date >= weekStartStr && l.date <= todayStr);
+  const monthLogs = logs.filter(l => l.date.startsWith(monthStr));
+
+  document.getElementById('sumToday').textContent = formatMinutes(todayLogs.reduce((s,l)=>s+l.durationMin,0));
+  document.getElementById('sumTodayCount').textContent = `${todayLogs.length}件`;
+  document.getElementById('sumWeek').textContent = formatMinutes(weekLogs.reduce((s,l)=>s+l.durationMin,0));
+  document.getElementById('sumWeekCount').textContent = `${weekLogs.length}件`;
+  const monthMin = monthLogs.reduce((s,l)=>s+l.durationMin,0);
+  document.getElementById('sumMonth').textContent = formatMinutes(monthMin);
+  document.getElementById('sumMonthCount').textContent = `${monthLogs.length}件`;
+  const days = (monthMin / 480).toFixed(1);
+  document.getElementById('sumMonthDays').innerHTML = `${days}<span style="font-size:1rem;font-weight:400">日</span>`;
+}
+
+// ---- CSV Export ----
+function exportCSV() {
+  const logs = loadLogs();
+  const filterClient = document.getElementById('filterClient').value;
+  const filterMonth = document.getElementById('filterMonth').value;
+
+  let filtered = logs;
+  if (filterClient) filtered = filtered.filter(l => l.client === filterClient);
+  if (filterMonth) filtered = filtered.filter(l => l.date.startsWith(filterMonth));
+
+  if (filtered.length === 0) { alert('出力する記録がありません'); return; }
+
+  const header = ['日付', '開始', '終了', '時間(分)', '時間(h)', 'クライアント', '業務内容', 'メモ'];
+  const rows = filtered.map(l => [
+    l.date, l.startTime, l.endTime, l.durationMin,
+    (l.durationMin / 60).toFixed(2),
+    l.client || '',
+    l.work,
+    l.note || ''
+  ]);
+
+  const csv = [header, ...rows].map(r =>
+    r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')
+  ).join('\n');
+
+  const bom = '\uFEFF';
+  const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const label = filterMonth ? filterMonth : formatDate(new Date()).slice(0,7);
+  a.download = `業務実績_${label}${filterClient ? '_' + filterClient : ''}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ---- Helpers ----
+function formatDate(d) {
+  return d.toISOString().slice(0, 10);
+}
+function formatTime(d) {
+  return d.toTimeString().slice(0, 5);
+}
+function formatDateJa(str) {
+  const [y, m, d] = str.split('-');
+  return `${y}/${m}/${d}`;
+}
+function formatSeconds(s) {
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+}
+function formatMinutes(min) {
+  if (min < 60) return `${min}分`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m === 0 ? `${h}時間` : `${h}時間${m}分`;
+}
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function refresh() {
+  renderLog();
+  renderSummary();
+}
+
+// ---- Init ----
+(function init() {
+  // Set today's date in manual entry
+  document.getElementById('manDate').value = formatDate(new Date());
+  // Set current month filter
+  document.getElementById('filterMonth').value = formatDate(new Date()).slice(0,7);
+
+  populateClientSelects();
+  refresh();
+})();
+</script>
+</body>
+</html>
