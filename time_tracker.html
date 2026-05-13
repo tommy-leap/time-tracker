@@ -383,6 +383,8 @@ function signOut() {
   auth.signOut();
 }
 
+auth.getRedirectResult().catch(() => {});
+
 auth.onAuthStateChanged(user => {
   if (user) {
     currentUser = user;
